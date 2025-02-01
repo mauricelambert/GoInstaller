@@ -12,8 +12,8 @@ This repository implements a cross-platform software installer written in Go.
  - Install program files
  - Install data files
  - Manage service files
-     - *Timer* and *service* file on Linux
-     - Executbale file with *service interface*
+     - *Timer* and *service* files on Linux
+     - Executbale files with *service interface*
          - Create service with auto start
          - Start service
  - Run commands after files installations (for exemple to enable/start your service on Linux)
