@@ -27,7 +27,7 @@ This repository implements a cross-platform software installer written in Go.
 
 ### Step 1: Download
 
-> Download the source code and move in the directory
+> Download the source code and change your current directory
 
 #### Git
 
