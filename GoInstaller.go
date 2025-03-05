@@ -60,6 +60,8 @@ var (
     regCloseKey               = modAdvapi32.NewProc("RegCloseKey")
     regQueryValueEx           = modAdvapi32.NewProc("RegQueryValueExW")
     regSetValueEx             = modAdvapi32.NewProc("RegSetValueExW")
+    kernel32                  = syscall.NewLazyDLL("kernel32.dll")
+    createSymbolicLinkW       = kernel32.NewProc("CreateSymbolicLinkW")
 
     SECURITY_NT_AUTHORITY     = [6]byte{0, 0, 0, 0, 0, 5}
 )
@@ -68,6 +70,8 @@ var (
 var data_files embed.FS
 //go:embed program/*
 var program_files embed.FS
+//go:embed gui/*
+var program_gui_files embed.FS
 //go:embed service/*
 var service_files embed.FS
 const application_name = "${APPLICATION_NAME}"
@@ -156,6 +160,13 @@ func process_directories(program_directory, data_directory string) {
     file.path = program_directory
     file.filetype = "program"
     process_directory(program_files, file)
+
+    file.path = program_directory
+    file.filetype = "gui"
+    if runtime.GOOS == "windows" {
+        file.callback = add_to_windows_menu
+    }
+    process_directory(program_gui_files, file)
 
     if runtime.GOOS == "windows" {
         file.path = program_directory
@@ -408,4 +419,37 @@ func add_to_system_path(new_path string) error {
     }
 
     return nil
+}
+
+/*
+    This function adds the GUI program to the Windows menu.
+*/
+func add_to_windows_menu(executable_path string) {
+    shortcut_path := os.Getenv("ProgramData") + "\\Microsoft\\Windows\\Start Menu\\Programs\\" + application_name + ".lnk"
+    symlink_path_pointer, err := syscall.UTF16PtrFromString(shortcut_path)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "failed to get UTF16 symlink path: %v\n", err)
+        return
+    }
+    executable_path_pointer, err := syscall.UTF16PtrFromString(executable_path)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "failed to get UTF16 executable path: %v\n", err)
+        return
+    }
+
+    flags := uint32(0)
+    /*if isDir {
+        flags = 1 // SYMBOLIC_LINK_FLAG_DIRECTORY
+    }*/
+
+    ret, _, err := createSymbolicLinkW.Call(
+        uintptr(unsafe.Pointer(symlink_path_pointer)),
+        uintptr(unsafe.Pointer(executable_path_pointer)),
+        uintptr(flags),
+    )
+
+    if ret == 0 {
+        fmt.Fprintf(os.Stderr, "failed to generate the symlink: %v\n", err)
+        return
+    }
 }
