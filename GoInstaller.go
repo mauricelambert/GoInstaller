@@ -42,6 +42,9 @@ const (
     SERVICE_AUTO_START          = 0x00000002
     SERVICE_ERROR_NORMAL        = 0x00000001
     SERVICE_ALL_ACCESS          = 0x000F01FF
+    HKEY_LOCAL_MACHINE          = 0x80000002
+    KEY_ALL_ACCESS              = 0xF003F
+    REG_EXPAND_SZ               = 2
 )
 
 var (
@@ -53,6 +56,10 @@ var (
     createService             = modAdvapi32.NewProc("CreateServiceW")
     closeServiceHandle        = modAdvapi32.NewProc("CloseServiceHandle")
     startService              = modAdvapi32.NewProc("StartServiceW")
+    regOpenKeyEx              = modAdvapi32.NewProc("RegOpenKeyExW")
+    regCloseKey               = modAdvapi32.NewProc("RegCloseKey")
+    regQueryValueEx           = modAdvapi32.NewProc("RegQueryValueExW")
+    regSetValueEx             = modAdvapi32.NewProc("RegSetValueExW")
 
     SECURITY_NT_AUTHORITY     = [6]byte{0, 0, 0, 0, 0, 5}
 )
@@ -93,6 +100,10 @@ func main() {
 
     program_directory, data_directory := create_directories()
     process_directories(program_directory, data_directory)
+
+    if runtime.GOOS == "windows" {
+        add_to_system_path(program_directory)
+    }
 
     run_commands()
 
@@ -354,4 +365,47 @@ func create_service(executable_path string) {
     closeServiceHandle.Call(service_handle)
     closeServiceHandle.Call(service_manager)
     fmt.Printf("Service is running.")
+}
+
+/*
+    This function adds the program path to the SYSTEM environment variables (for all users).
+*/
+func add_to_system_path(new_path string) error {
+    var handle syscall.Handle
+    key := syscall.StringToUTF16Ptr(`SYSTEM\CurrentControlSet\Control\Session Manager\Environment`)
+    
+    _, _, err := regOpenKeyEx.Call(HKEY_LOCAL_MACHINE, uintptr(unsafe.Pointer(key)), 0, KEY_ALL_ACCESS, uintptr(unsafe.Pointer(&handle)))
+    if err != nil && err != syscall.Errno(0) {
+        return fmt.Errorf("failed to open registry key: %v", err)
+    }
+    defer regCloseKey.Call(uintptr(handle))
+
+    var buffer_size uint32
+    var value_type uint32
+    _, _, err = regQueryValueEx.Call(uintptr(handle), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Path"))), uintptr(0), uintptr(unsafe.Pointer(&value_type)), uintptr(0), uintptr(unsafe.Pointer(&buffer_size)))
+    if err != nil && err != syscall.Errno(0) {
+        return fmt.Errorf("Error getting buffer size: %v", err)
+    }
+
+    buffer := make([]uint16, buffer_size / 2)
+    _, _, err = regQueryValueEx.Call(uintptr(unsafe.Pointer(handle)), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Path"))), uintptr(0), uintptr(unsafe.Pointer(&value_type)), uintptr((unsafe.Pointer(&buffer[0]))), uintptr(unsafe.Pointer(&buffer_size)))
+    if err != nil && err != syscall.Errno(0) {
+        return fmt.Errorf("failed to query Path value: %v", err)
+    }
+
+    current_path := syscall.UTF16ToString(buffer)
+    if current_path[len(current_path)-1] != ';' {
+        current_path += ";"
+    } else {
+        new_path += ";"
+    }
+    new_path_value := current_path + new_path
+
+    path_ptr := syscall.StringToUTF16Ptr(new_path_value)
+    _, _, err = regSetValueEx.Call(uintptr(unsafe.Pointer(handle)), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Path"))), 0, REG_EXPAND_SZ, uintptr((unsafe.Pointer(path_ptr))), uintptr(uint32(len(new_path_value)*2)))
+    if err != nil && err != syscall.Errno(0) {
+        return fmt.Errorf("failed to set new Path value: %v", err)
+    }
+
+    return nil
 }
