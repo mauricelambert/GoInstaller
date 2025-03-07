@@ -27,6 +27,7 @@ import (
     "strings"
     "os/exec"
     "unsafe"
+    "errors"
     "io/fs"
     "embed"
     "fmt"
@@ -217,18 +218,30 @@ func process_file(files embed.FS, entry fs.DirEntry, file File) {
 }
 
 /*
+    This function checks if file exists.
+*/
+func file_exists(file_path string) bool {
+    _, err := os.Stat(file_path)
+    return !errors.Is(err, os.ErrNotExist)
+}
+
+/*
     This function writes the file content or exit on error.
 */
 func write_file(file File) string {
     fullfilepath := filepath.Join(file.path, file.name)
-    err := os.WriteFile(fullfilepath, file.data, 0755)
+    if file.filetype != "data" || !file_exists(fullfilepath) {
+        err := os.WriteFile(fullfilepath, file.data, 0755)
 
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error writing file %s: %v\n", fullfilepath, err)
-        os.Exit(2)
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error writing file %s: %v\n", fullfilepath, err)
+            os.Exit(2)
+        }
+
+        fmt.Printf("Installed: %s\n", fullfilepath)
+    } else {
+        fmt.Printf("Data file already exists: %s\n", fullfilepath)
     }
-
-    fmt.Printf("Installed: %s\n", fullfilepath)
     return fullfilepath
 }
 
