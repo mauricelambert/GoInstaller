@@ -36,6 +36,7 @@ This repository implements a cross-platform software installer written in Go.
 ```bash
 git clone "https://github.com/mauricelambert/GoInstaller.git"
 cd "GoInstaller"
+cd "GoInstaller"
 ```
 
 #### Wget
@@ -44,6 +45,7 @@ cd "GoInstaller"
 wget https://github.com/mauricelambert/GoInstaller/archive/refs/heads/main.zip
 unzip main.zip
 cd GoInstaller-main
+cd "GoInstaller"
 ```
 
 #### cURL
@@ -52,6 +54,7 @@ cd GoInstaller-main
 curl -O https://github.com/mauricelambert/GoInstaller/archive/refs/heads/main.zip
 unzip main.zip
 cd GoInstaller-main
+cd "GoInstaller"
 ```
 
 ### Step 2: prepare software files
@@ -78,7 +81,7 @@ mv /path/to/my/service/files service
 ### Step 4: Compile your installer
 
 ```bash
-go build -o installer.exe GoInstaller.go
+go build -o installer.exe
 ```
 
 ## Links
