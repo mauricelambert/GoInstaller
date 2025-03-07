@@ -98,6 +98,12 @@ func create_directories() (string, string) {
     create_directory(program_files_dir)
     create_directory(program_data_dir)
 
+    if runtime.GOOS == "windows" {
+        add_application_source_log(application_name)
+    } else {
+        create_directory("/var/log/" + application_name)
+    }
+
     return program_files_dir, program_data_dir
 }
 

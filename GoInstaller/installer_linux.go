@@ -63,3 +63,8 @@ func check_administrator() (bool, error) {
 func execute_windows_command (command string) *exec.Cmd {
     return exec.Command("sh", "-c", command)
 }
+
+/*
+    This function creates the application source log in Windows event source log.
+*/
+func add_application_source_log (application string) {}

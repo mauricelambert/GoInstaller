@@ -41,7 +41,10 @@ const (
     SERVICE_ALL_ACCESS          = 0x000F01FF
     HKEY_LOCAL_MACHINE          = 0x80000002
     KEY_ALL_ACCESS              = 0xF003F
+    REG_SZ                      = 1
     REG_EXPAND_SZ               = 2
+    REG_DWORD                   = 4
+    MAX_PATH                    = 256
 )
 
 var (
@@ -54,11 +57,13 @@ var (
     closeServiceHandle        = modAdvapi32.NewProc("CloseServiceHandle")
     startService              = modAdvapi32.NewProc("StartServiceW")
     regOpenKeyEx              = modAdvapi32.NewProc("RegOpenKeyExW")
+    regCreateKeyEx            = modAdvapi32.NewProc("RegCreateKeyEx")
     regCloseKey               = modAdvapi32.NewProc("RegCloseKey")
     regQueryValueEx           = modAdvapi32.NewProc("RegQueryValueExW")
     regSetValueEx             = modAdvapi32.NewProc("RegSetValueExW")
     kernel32                  = syscall.NewLazyDLL("kernel32.dll")
     createSymbolicLinkW       = kernel32.NewProc("CreateSymbolicLinkW")
+    getSystemDirectory        = kernel32.NewProc("GetSystemDirectory")
 
     SECURITY_NT_AUTHORITY     = [6]byte{0, 0, 0, 0, 0, 5}
 )
@@ -239,6 +244,30 @@ func execute_windows_command (command string) *exec.Cmd {
         CmdLine: "C:\\Windows\\System32\\cmd.exe /C " + strings.ReplaceAll(strings.ReplaceAll(command, "^", "^^"), "\"", "^\""),
     }
     return cmd
+}
+
+/*
+    This function creates the application source log in Windows event source log.
+*/
+func add_application_source_log (application string) {
+    registry_path := syscall.StringToUTF16Ptr("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + application)
+    var handle syscall.Handle
+    _, _, err := regCreateKeyEx.Call(HKEY_LOCAL_MACHINE, uintptr(unsafe.Pointer(registry_path)), 0, 0, 0, KEY_ALL_ACCESS, 0, uintptr(unsafe.Pointer(&handle)), 0)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to register event source: %v\n", err)
+        return
+    }
+    defer regCloseKey.Call(uintptr(handle))
+
+    var system_directory [MAX_PATH]uint16
+    getSystemDirectory.Call(uintptr(unsafe.Pointer(&system_directory[0])), MAX_PATH)
+    event_message_file := syscall.UTF16ToString(system_directory[:]) + "\\EventCreate.exe"
+    _, _, err = regSetValueEx.Call(uintptr(handle), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("EventMessageFile"))), 0, REG_SZ, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(event_message_file))), uintptr((len(event_message_file) * 2)))
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Failed to set EventMessageFile: %v\n", err)
+    }
+
+    fmt.Println("Event source registered successfully.")
 }
 
 /*
