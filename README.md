@@ -13,9 +13,11 @@ This repository implements a cross-platform software installer written in Go.
  - Install data files
  - Manage service files
      - *Timer* and *service* files on Linux
-     - Executbale files with *service interface*
+     - Executbale files with *service interface* on Windows
          - Create service with auto start
          - Start service
+ - Add to SYSTEM PATH on Windows (by default it's in the PATH on Linux)
+ - Add GUI in Windows menu
  - Run commands after files installations (for exemple to enable/start your service on Linux)
 
 ## Requirements
@@ -61,7 +63,9 @@ cd GoInstaller-main
 mkdir data
 mkdir program
 mkdir service
+mkdir gui
 
+mv /path/to/my/gui/files gui
 mv /path/to/my/data/files data
 mv /path/to/my/program/files program
 mv /path/to/my/service/files service
@@ -79,7 +83,7 @@ go build -o installer.exe GoInstaller.go
 
 ## Links
 
- - [Github](https://github.com/mauricelambert/PyPePacker)
+ - [Github](https://github.com/mauricelambert/GoInstaller)
 
 ## License
 
