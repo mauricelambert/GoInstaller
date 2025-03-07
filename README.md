@@ -18,6 +18,9 @@ This repository implements a cross-platform software installer written in Go.
          - Start service
  - Add to SYSTEM PATH on Windows (by default it's in the PATH on Linux)
  - Add GUI in Windows menu
+ - Manage log systems
+     - `/var/log/` directory on Linux
+     - Event source log creation on Windows
  - Run commands after files installations (for exemple to enable/start your service on Linux)
 
 ## Requirements
