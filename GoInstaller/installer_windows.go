@@ -185,14 +185,7 @@ func add_to_system_path(new_path string) error {
         return fmt.Errorf("failed to query Path value: %v", err)
     }
 
-    current_path := syscall.UTF16ToString(buffer)
-    if current_path[len(current_path)-1] != ';' {
-        current_path += ";"
-    } else {
-        new_path += ";"
-    }
-    new_path_value := current_path + new_path
-
+    new_path_value := add_string_list_value(syscall.UTF16ToString(buffer), new_path, ';')
     path_ptr := syscall.StringToUTF16Ptr(new_path_value)
     _, _, err = regSetValueEx.Call(uintptr(unsafe.Pointer(handle)), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Path"))), 0, REG_EXPAND_SZ, uintptr((unsafe.Pointer(path_ptr))), uintptr(uint32(len(new_path_value)*2)))
     if err != nil && err != syscall.Errno(0) {
@@ -200,6 +193,24 @@ func add_to_system_path(new_path string) error {
     }
 
     return nil
+}
+
+/*
+    This function adds a value to a string with single char separator management.
+*/
+func add_string_list_value (list string, new_value string, separator byte) string {
+    string_length := len(list)
+
+    if string_length == 0 {
+        return new_value
+    }
+
+    if list[len(list) - 1] != separator {
+        list += string(separator)
+    } else {
+        new_value += string(separator)
+    }
+    return list + new_value
 }
 
 /*
@@ -268,6 +279,48 @@ func add_application_source_log (application string) {
     }
 
     fmt.Println("Event source registered successfully.")
+}
+
+/*
+    This function adds a new registry key with a specific value.
+*/
+func new_registry_key(key_path string, values []RegistryKey) error {
+    var handle syscall.Handle
+    path := syscall.StringToUTF16Ptr(key_path)
+    
+    _, _, err := regCreateKeyEx.Call(HKEY_LOCAL_MACHINE, uintptr(unsafe.Pointer(path)), 0, 0, 0, KEY_ALL_ACCESS, 0, uintptr(unsafe.Pointer(&handle)), 0)
+    if err != nil && err != syscall.Errno(0) {
+        return fmt.Errorf("failed to create registry path: %v", err)
+    }
+    defer regCloseKey.Call(uintptr(handle))
+
+    for _, entry := range values {
+        key := uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(entry.value_name)))
+        var value_pointer uintptr
+        var value_size uintptr
+        var value_type uintptr
+        var value_temp uint32
+
+        switch value := entry.value_data.(type) {
+        case string:
+            value_pointer = uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(value)))
+            value_size = uintptr(uint32(len(value) * 2 + 2))
+            value_type = REG_EXPAND_SZ
+        case int:
+            value_temp = uint32(value)
+            value_pointer = uintptr(unsafe.Pointer(&value_temp))
+            value_size = uintptr(uint32(4))
+            value_type = REG_DWORD
+        default:
+            return fmt.Errorf("unsupported value type for %s", entry.value_name)
+        }
+
+        _, _, err = regSetValueEx.Call(uintptr(unsafe.Pointer(handle)), key, 0, value_type, value_pointer, value_size)
+        if err != nil && err != syscall.Errno(0) {
+            return fmt.Errorf("failed to set new registry value: %v", err)
+        }
+    }
+    return nil
 }
 
 /*
