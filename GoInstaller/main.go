@@ -49,6 +49,11 @@ type File struct {
     callback func(string)
 }
 
+type RegistryKey struct {
+    value_name string
+    value_data any
+}
+
 /*
     The main function to starts the installer.
 
@@ -100,6 +105,7 @@ func create_directories() (string, string) {
 
     if runtime.GOOS == "windows" {
         add_application_source_log(application_name)
+        // new_registry_key(`SYSTEM\CurrentControlSet\Services\EventLog\Application\` + application_name, []RegistryKey{{"CustomSource", 1}, {"EventMessageFile", `%SystemRoot%\System32\EventCreate.exe`}, {"TypesSupported", 7}})
     } else {
         create_directory("/var/log/" + application_name)
     }
